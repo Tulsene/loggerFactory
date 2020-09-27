@@ -32,9 +32,20 @@ def super_logs(log: Logger) -> None:
 
 def test_set_simple_logger() -> None:
     logger_factory.set_simple_logger(root_path)
-    log = logger_factory.get_simple_logger('spam')
+    log = logger_factory.get_simple_logger('spam.simple_logger')
     super_logs(log)
-    log = logger_factory.get_simple_logger('spam.ham')
+    
+    # Weirdly I was not able to use %(name)-15s
+    logger_factory.set_simple_logger(root_path,
+        {'spam': {'filename': 'spam.log', 'formatter': 'minimal'}},
+        {'minimal': 
+            {'class': 'logging.Formatter', 'format': '%(name)s %(message)s'}})
+    log = logger_factory.get_simple_logger('spam.simple_logger')
+    super_logs(log)
+    
+    logger_factory.set_simple_logger(root_path,
+        {'spam': {'formatter': 'detailed'}})
+    log = logger_factory.get_simple_logger('spam.simple_logger')
     super_logs(log)
 
 
@@ -44,7 +55,7 @@ def worker_thread(log: Logger) -> None:
 
 def test_multi_thread_logger() -> None:
     logger_factory.set_simple_logger(root_path)
-    log = logger_factory.get_simple_logger('spam.ham.yey')
+    log = logger_factory.get_simple_logger('spam.multi_thread_logger')
     threads = []
     for i in range(5):
         thread = threading.Thread(target=worker_thread,
@@ -58,7 +69,7 @@ def test_multi_thread_logger() -> None:
 
 
 def worker_process(processes_queue: Queue) -> None:
-    log = logger_factory.get_logger_in_process(processes_queue, 'spam.ham')
+    log = logger_factory.get_logger_in_process(processes_queue, 'spam.logger_in_separate_thread')
     super_logs(log)
 
 
@@ -81,7 +92,7 @@ def test_set_logger_in_separate_thread() -> None:
 
 
 def worker_with_logging_seperate_worker(processes_queue: Queue) -> None:
-    log = logger_factory.get_process_logging_config(processes_queue, 'spam')
+    log = logger_factory.get_process_logging_config(processes_queue, 'spam.with_logging_as_seperate_worker')
     super_logs(log)
 
 
@@ -96,7 +107,7 @@ def test_with_logging_as_seperate_worker() -> None:
         workers.append(wp)
         wp.start()
 
-    log = logger_factory.get_process_logging_config(processes_queue, 'spam')
+    log = logger_factory.get_process_logging_config(processes_queue, 'spam.main_process')
     super_logs(log)
 
     for wp in workers:
@@ -108,7 +119,8 @@ def test_with_logging_as_seperate_worker() -> None:
 
 if __name__ == '__main__':
     remove_existing_log_files()
-    # test_set_simple_logger()
-    # test_multi_thread_logger()
+    test_set_simple_logger()
+    test_multi_thread_logger()
+    # The following example do not exit properly!!
     # test_set_logger_in_separate_thread()
     test_with_logging_as_seperate_worker()

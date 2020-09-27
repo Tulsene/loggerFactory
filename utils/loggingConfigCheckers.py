@@ -1,3 +1,4 @@
+from copy import deepcopy
 import re
 
 
@@ -13,9 +14,9 @@ FILE_HANDLER_TEMPLATE = {
     "level": "WARNING",
     "filename": "",
     "mode": "a",
-            "formatter": "",
-            "maxBytes": 10000,
-            "backupCount": 10
+    "formatter": "",
+    "maxBytes": 1000000,
+    "backupCount": 10
 }
 
 
@@ -36,7 +37,8 @@ pathname|
 processName|
 threadName)\)
 (-{1,3}\d)?
-s([:-])?
+s
+[:-]?
 \s?)""", re.VERBOSE)
 
 JSON_FORMAT = re.compile(r"""
@@ -277,23 +279,10 @@ def check_new_formatter(formatter: dict) -> dict:
     return formatter
 
 
-def generate_custom_handler(custom_handler: str,
-    formatters_names: list) -> dict:
-
-    check_custom_handler_parameter(custom_handler, formatters_names)
-    new_handler = deepcopy(FILE_HANDLER_TEMPLATE)
-    new_handler['filename'] = f"{custom_handler['filename']}.log"
-    new_handler['formatter'] = custom_handler['formatter']
-    if 'level' in custom_handler:
-        new_handler['level'] = custom_handler['level']
-
-    return {custom_handler['filename']: new_handler}
-
-
 def check_custom_handler_parameter(custom_handler: dict,
     formatters_names: list) -> None:
 
-    if custom_handler['name'].lowercase() == 'root':
+    if next(iter(custom_handler)).lower() == 'root':
         raise LoggerConfigMalformation('Handler name can\'t be root')
 
     for param_name in custom_handler:
@@ -304,15 +293,33 @@ def check_custom_handler_parameter(custom_handler: dict,
             raise LoggerConfigMalformation('Parameter '
                 f'{custom_handler[param_name]} is not a string.')
 
-        if custom_handler['formatter'] not in formatters_name:
-            raise LoggerConfigMalformation('Formatter '
-                f'{custom_handler["formatter"]} not in {formatters_name}')
+    if custom_handler['formatter'] not in formatters_names:
+        raise LoggerConfigMalformation('Formatter '
+            f'{custom_handler["formatter"]} not in {formatters_names}')
 
-        if 'level' in custom_handler \
-        and custom_handler['level'] not in LOGGER_LEVELS:
+    if 'level' in custom_handler \
+    and custom_handler['level'] not in LOGGER_LEVELS:
 
-            raise LoggerConfigMalformation(f'Level {custom_handler["level"]} '
-                f'not in {LOGGER_LEVELS}')
+        raise LoggerConfigMalformation(f'Level {custom_handler["level"]} '
+            f'not in {LOGGER_LEVELS}')
+
+
+def generate_custom_handler(handler_name: str, custom_handler: dict,
+    formatters_names: list) -> dict:
+
+    check_custom_handler_parameter(custom_handler, formatters_names)
+    new_handler = deepcopy(FILE_HANDLER_TEMPLATE)
+
+    if new_handler['filename']:
+        new_handler['filename'] = {custom_handler['filename']}
+    else:
+        new_handler['filename'] = f'{handler_name}.log'
+
+    new_handler['formatter'] = custom_handler['formatter']
+    if 'level' in custom_handler:
+        new_handler['level'] = custom_handler['level']
+
+    return {handler_name: new_handler}
 
 
 def check_logger_name(name: str) -> None:

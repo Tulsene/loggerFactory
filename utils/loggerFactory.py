@@ -1,4 +1,3 @@
-from copy import deepcopy
 import json
 import logging
 import logging.config
@@ -68,8 +67,16 @@ class Handler:
             logger.handle(record)
 
 
-def configure_logging(root_path: str, new_formatters: dict = None,
-    new_handlers: dict = None) -> dict:
+def emergency_logging() -> None:
+    logging.basicConfig(
+        format='%(asctime)s %(name)s %(levelname)s %(message)s',
+        handlers=[logging.FileHandler('logging_error.log', mode='a'),
+                  logging.StreamHandler()],
+        level=logging.DEBUG)
+
+
+def configure_logging(root_path: str, new_handlers: dict = None,
+    new_formatter: dict = None) -> dict:
 
     try:
         default_config_path = f'{root_path}config/log_config.json'
@@ -78,18 +85,19 @@ def configure_logging(root_path: str, new_formatters: dict = None,
 
         check.check_logger_config(config)
 
-        if new_formatters:
-            for formatter in new_formatters:
-                config['formatters'][formatter] = check.check_new_formatter(
-                    formatter)
+        if new_formatter:
+            formatter_name = next(iter(new_formatter))
+            config['formatters'][formatter_name] = \
+                check.check_new_formatter(new_formatter[formatter_name])
 
         if new_handlers:
-            formatters_names = get_formatters_names(config['formatters'])
-            for handler_name in new_handlers:
-                config['handlers'].update(generate_custom_handler(
-                    new_handlers[handler_name], formatters_names))
+            formatters_names = check.get_formatters_names(config['formatters'])
 
-                if new_handlers[handler_name] not in config['loggers']:
+            for handler_name in new_handlers:
+                config['handlers'].update(check.generate_custom_handler(
+                    handler_name, new_handlers[handler_name], formatters_names))
+
+                if handler_name not in config['loggers']:
                     config['loggers'][handler_name] = {
                         'handlers': [handler_name]}
 
@@ -105,20 +113,16 @@ def configure_logging(root_path: str, new_formatters: dict = None,
         return config
 
     except Exception as e:
-        logging.basicConfig(
-            format='%(asctime)s %(name)s %(levelname)s %(message)s',
-            handlers=[logging.FileHandler('logging_error.log', mode='a'),
-                      logging.StreamHandler()],
-            level=logging.DEBUG)
+        emergency_logging()
         logging.exception('Error when loading the logging configuration')
         raise SystemExit()
 
 
-def set_simple_logger(root_path: str, new_formatters: dict = None,
-    new_handlers: dict = None):
+def set_simple_logger(root_path: str, new_handlers: dict = None,
+    new_formatters: dict = None):
 
     """For single process application, with multithread or not."""
-    config = configure_logging(root_path, new_formatters, new_handlers)
+    config = configure_logging(root_path, new_handlers, new_formatters)
     logging.config.dictConfig(config)
 
 
@@ -137,11 +141,11 @@ def logger_thread(q: Queue) -> None:
 
 
 def set_process_logger_in_separate_thread(root_path: str,
-    new_formatters: dict = None,
-    new_handlers: dict = None) -> (Queue, threading.Thread):
+    new_handlers: dict = None,
+    new_formatters: dict = None) -> (Queue, threading.Thread):
     """Put the logging system in the main process but in a separate thread."""
 
-    config = configure_logging(root_path, new_formatters, new_handlers)
+    config = configure_logging(root_path, new_handlers, new_formatters)
     logging.config.dictConfig(config)
     processes_queue = Queue()
     listener_thread = threading.Thread(
@@ -172,11 +176,11 @@ def dedicated_listener_process(processes_queue: Queue, stop_event: Event,
     listener.stop()
 
 
-def set_logger_in_separate_process(root_path: str, new_formatters: dict = None,
-    new_handlers: dict = None) -> (Queue, Event, Process):
+def set_logger_in_separate_process(root_path: str, new_handlers: dict = None,
+    new_formatters: dict = None) -> (Queue, Event, Process):
 
     try:
-        config = configure_logging(root_path, new_formatters, new_handlers)
+        config = configure_logging(root_path, new_handlers, new_formatters)
         processes_queue = Queue()
         stop_event = Event()
         listener_process = Process(target=dedicated_listener_process,
@@ -186,11 +190,7 @@ def set_logger_in_separate_process(root_path: str, new_formatters: dict = None,
 
         return processes_queue, stop_event, listener_process
     except Exception as e:
-        logging.basicConfig(
-            format='%(asctime)s %(name)s %(levelname)s %(message)s',
-            handlers=[logging.FileHandler('logging_error.log', mode='a'),
-                      logging.StreamHandler()],
-            level=logging.DEBUG)
+        emergency_logging()
         logging.exception('Error when loading the logging configuration')
         raise SystemExit()
 

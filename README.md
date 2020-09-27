@@ -10,7 +10,13 @@ Example from the official documentation (with little or no modifications) are in
 
 ## How it work
 ### Configuration
-A logging configuration template is in `config`. You can add some custom configuration when initializing with `set_...` function from `utils.loggerFactory.py`.
+A logging configuration template is in `config`. 
+
+You can add some custom configuration when initializing with `set_...` function from `utils.loggerFactory.py`. It must have the following pattern:
+```
+{'name': {'formatter': 'formatter_name', 'filename': 'optional_parameter.log', 'level': 'optional_parameter'}},
+{'formatter_name': {'class': 'logging.Formatter', 'format': '%(name)s %(message)s'}})
+```
 
 ### Usage
 Then call the `get_..` function that fits to your needs. See `examples.py` to see how it should be used.
