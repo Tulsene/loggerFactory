@@ -229,7 +229,7 @@ def check_handler_parameters(handler_name: str, handler: dict,
         raise LoggerConfigMalformation(f'{handler["mode"]} of {handler_name} '
             'is not set correctly')
 
-    if handler_name not in ['errors', 'console']:
+    if handler['class'] == 'logging.handlers.RotatingFileHandler':
         if handler['maxBytes'] < 100000:
             raise LoggerConfigMalformation(f'{handler["maxBytes"]} of '
                 f'{handler_name} is too small')
@@ -241,7 +241,8 @@ def check_handler_parameters(handler_name: str, handler: dict,
 
 def check_handler_class(handler_name: str, handler: dict) -> None:
     if handler_name not in ['console', 'error'] \
-    and handler["class"] == 'logging.handlers.RotatingFileHandler':
+    and (handler["class"] == 'logging.handlers.RotatingFileHandler'
+    or handler["class"] == 'logging.FileHandler'):
         pass
 
     elif handler_name == 'errors' \
